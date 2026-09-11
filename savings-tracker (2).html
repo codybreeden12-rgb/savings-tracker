@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Savings Goal Tracker</title>
+<style>
+  :root{
+    --bg:#f7f6f2; --card:#ffffff; --border:#e4e2da; --border-strong:#cfccc0;
+    --text-primary:#1f1e1c; --text-secondary:#6b6a63; --text-muted:#9a988f;
+    --success:#0f6e56; --success-bg:#e1f5ee; --danger:#993c1d; --danger-bg:#faece7;
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#17171a; --card:#1f1f22; --border:#2c2c30; --border-strong:#3a3a3e;
+      --text-primary:#f0efe9; --text-secondary:#b2b0a6; --text-muted:#7d7c76;
+      --success:#5dcaa5; --success-bg:#0c2a22; --danger:#f0997b; --danger-bg:#2e1912;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    background:var(--bg); color:var(--text-primary); padding:24px 16px 60px;
+  }
+  .wrap{max-width:480px;margin:0 auto;}
+  h1{font-size:18px;font-weight:600;text-align:center;margin:0 0 20px;}
+  .ring-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:20px;}
+  svg{width:220px;height:220px;}
+  #ring-pct{font-size:30px;font-weight:600;fill:var(--text-primary);}
+  #ring-label{font-size:13px;fill:var(--text-secondary);}
+  .amt{font-size:24px;font-weight:600;margin-top:6px;}
+  .amt small{font-size:16px;color:var(--text-secondary);font-weight:400;}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 10px;text-align:center;}
+  .stat-card p:first-child{font-size:12px;color:var(--text-secondary);margin:0 0 4px;}
+  .stat-card p:last-child{font-size:18px;font-weight:600;margin:0;}
+  .date-row{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;}
+  .date-row label{font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;}
+  input[type="date"], input[type="number"]{
+    font-size:14px;padding:8px 10px;border-radius:8px;border:1px solid var(--border-strong);
+    background:var(--card);color:var(--text-primary);
+  }
+  .countdown-val{font-size:17px;font-weight:600;text-align:right;}
+  .input-row{display:flex;gap:8px;margin-bottom:6px;}
+  .input-row input{flex:1;}
+  button{
+    font-size:14px;padding:9px 14px;border-radius:8px;border:1px solid var(--border-strong);
+    background:var(--card);color:var(--text-primary);cursor:pointer;
+  }
+  button:active{transform:scale(0.98);}
+  #btn-deposit{color:var(--success);}
+  #btn-withdraw{color:var(--danger);}
+  #input-error{display:none;font-size:12px;color:var(--danger);margin:0 0 14px;}
+  .hist-title{font-size:14px;font-weight:600;margin:20px 0 8px;}
+  #history{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;}
+  .hist-row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:14px;}
+  .hist-date{color:var(--text-secondary);}
+  #history-empty{font-size:13px;color:var(--text-muted);}
+  #btn-reset{margin-top:16px;font-size:12px;color:var(--text-secondary);border:none;background:none;text-decoration:underline;padding:0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Savings goal tracker</h1>
+  <p id="sync-status" style="text-align:center;font-size:12px;color:var(--text-muted);margin:-14px 0 18px;">Loading…</p>
+
+  <div class="ring-wrap">
+    <svg viewBox="0 0 220 220">
+      <circle cx="110" cy="110" r="96" fill="none" stroke="var(--border)" stroke-width="14"></circle>
+      <circle id="ring-progress" cx="110" cy="110" r="96" fill="none" stroke="var(--success)" stroke-width="14" stroke-linecap="round" stroke-dasharray="603" stroke-dashoffset="603" transform="rotate(-90 110 110)" style="transition:stroke-dashoffset 0.6s ease;"></circle>
+      <text id="ring-pct" x="110" y="104" text-anchor="middle">0%</text>
+      <text id="ring-label" x="110" y="128" text-anchor="middle">of goal</text>
+    </svg>
+    <div class="amt"><span id="current-amt">$0</span><small> / $3,500</small></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card"><p>Remaining</p><p id="stat-remaining">$3,500</p></div>
+    <div class="stat-card"><p>Avg / week</p><p id="stat-avg">$0</p></div>
+    <div class="stat-card"><p>Days left</p><p id="stat-days">-</p></div>
+  </div>
+  <div class="stats" style="grid-template-columns:1fr;margin-top:-10px;">
+    <div class="stat-card"><p>Needed per week to hit your goal by the target date</p><p id="stat-weekly">$0/wk</p></div>
+  </div>
+
+  <div class="date-row">
+    <div>
+      <label>Target date</label>
+      <input type="date" id="target-date">
+    </div>
+    <div>
+      <label style="text-align:right;">Countdown</label>
+      <div class="countdown-val" id="countdown">-</div>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <input type="number" id="amount-input" placeholder="Enter amount" min="0" step="0.01">
+    <button id="btn-deposit">+ Deposit</button>
+    <button id="btn-withdraw">- Withdraw</button>
+  </div>
+  <p id="input-error">Enter a valid amount first</p>
+
+  <div class="hist-title">Transaction history</div>
+  <div id="history"></div>
+  <p id="history-empty">No transactions yet.</p>
+
+  <button id="btn-reset">Reset all data</button>
+</div>
+
+<script>
+(function(){
+  const GOAL = 3500;
+  const RADIUS = 96;
+  const CIRC = 2 * Math.PI * RADIUS;
+  const STORAGE_KEY = 'savings-goal-3500-v1';
+  const DEFAULT_TARGET = '2027-03-21';
+  const BIN_ID = '6aa47799ffd5d16053fbefd6';
+  const API_KEY = '$2a$10$F/kM2qdONNuo.OTYUynZc.h/RbXgzkEhq2fz5M.F5CDjj3M4i0tI6';
+  const BIN_URL = 'https://api.jsonbin.io/v3/b/' + BIN_ID;
+
+  let state = { transactions: [], targetDate: DEFAULT_TARGET };
+  let saving = false;
+
+  const els = {
+    ringProgress: document.getElementById('ring-progress'),
+    ringPct: document.getElementById('ring-pct'),
+    currentAmt: document.getElementById('current-amt'),
+    statRemaining: document.getElementById('stat-remaining'),
+    statAvg: document.getElementById('stat-avg'),
+    statDays: document.getElementById('stat-days'),
+    statWeekly: document.getElementById('stat-weekly'),
+    targetDate: document.getElementById('target-date'),
+    countdown: document.getElementById('countdown'),
+    amountInput: document.getElementById('amount-input'),
+    error: document.getElementById('input-error'),
+    history: document.getElementById('history'),
+    historyEmpty: document.getElementById('history-empty'),
+  };
+
+  function fmt(n){ return '$' + Math.round(n).toLocaleString(); }
+  function currentTotal(){ return state.transactions.reduce((sum,t)=>sum+t.amount,0); }
+
+  function load(){
+    return fetch(BIN_URL + '/latest', {
+      headers: { 'X-Master-Key': API_KEY }
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data && data.record){
+        state = data.record;
+        if (!state.targetDate) state.targetDate = DEFAULT_TARGET;
+        if (!state.transactions) state.transactions = [];
+      }
+      setSyncStatus('synced');
+    })
+    .catch(err => {
+      console.error('load failed', err);
+      setSyncStatus('offline');
+    });
+  }
+
+  function save(){
+    setSyncStatus('saving');
+    return fetch(BIN_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': API_KEY
+      },
+      body: JSON.stringify(state)
+    })
+    .then(() => setSyncStatus('synced'))
+    .catch(err => {
+      console.error('save failed', err);
+      setSyncStatus('offline');
+    });
+  }
+
+  function setSyncStatus(status){
+    const el = document.getElementById('sync-status');
+    if (!el) return;
+    if (status === 'synced') el.textContent = 'Synced';
+    else if (status === 'saving') el.textContent = 'Saving…';
+    else if (status === 'offline') el.textContent = 'Offline — changes saved on reconnect';
+  }
+
+  function render(){
+    const total = Math.max(0, currentTotal());
+    const pct = Math.min(100, (total / GOAL) * 100);
+    const offset = CIRC - (pct/100)*CIRC;
+    els.ringProgress.setAttribute('stroke-dasharray', CIRC.toFixed(0));
+    els.ringProgress.style.strokeDashoffset = offset.toFixed(1);
+    els.ringPct.textContent = Math.round(pct) + '%';
+    els.currentAmt.textContent = fmt(total);
+    els.statRemaining.textContent = fmt(Math.max(0, GOAL - total));
+
+    if (state.transactions.length > 0){
+      const firstDate = new Date(state.transactions[0].date);
+      const now = new Date();
+      const weeksElapsed = Math.max(1/7, (now - firstDate) / (1000*60*60*24*7));
+      els.statAvg.textContent = fmt(total / weeksElapsed);
+    } else {
+      els.statAvg.textContent = '$0';
+    }
+
+    els.targetDate.value = state.targetDate;
+    const target = new Date(state.targetDate + 'T23:59:59');
+    const now = new Date();
+    const days = Math.ceil((target - now) / (1000*60*60*24));
+    els.statDays.textContent = days > 0 ? days : 0;
+    els.countdown.textContent = days > 0 ? (days + (days === 1 ? ' day left' : ' days left')) : 'Target date reached';
+
+    const remaining = Math.max(0, GOAL - total);
+    if (days > 0 && remaining > 0){
+      const weeksLeft = Math.max(days / 7, 1/7);
+      els.statWeekly.textContent = fmt(remaining / weeksLeft) + '/wk';
+    } else if (remaining <= 0){
+      els.statWeekly.textContent = 'Goal reached';
+    } else {
+      els.statWeekly.textContent = 'Past due';
+    }
+
+    els.history.innerHTML = '';
+    if (state.transactions.length === 0){
+      els.historyEmpty.style.display = 'block';
+    } else {
+      els.historyEmpty.style.display = 'none';
+      const sorted = [...state.transactions].sort((a,b)=> new Date(b.date) - new Date(a.date));
+      sorted.forEach(t=>{
+        const row = document.createElement('div');
+        row.className = 'hist-row';
+        const isDeposit = t.amount >= 0;
+        const dateStr = new Date(t.date).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+        row.innerHTML = '<span class="hist-date">' + dateStr + '</span>' +
+          '<span style="font-weight:600;color:' + (isDeposit ? 'var(--success)' : 'var(--danger)') + ';">' +
+          (isDeposit ? '+' : '-') + '$' + Math.abs(t.amount).toLocaleString() + '</span>';
+        els.history.appendChild(row);
+      });
+    }
+  }
+
+  function addTransaction(amount){
+    load().then(()=>{
+      state.transactions.push({ amount: amount, date: new Date().toISOString() });
+      save().then(render);
+      render();
+    });
+  }
+
+  function handleAmount(sign){
+    const val = parseFloat(els.amountInput.value);
+    if (!val || val <= 0 || isNaN(val)){
+      els.error.style.display = 'block';
+      return;
+    }
+    els.error.style.display = 'none';
+    addTransaction(sign * val);
+    els.amountInput.value = '';
+  }
+
+  els.amountInput.addEventListener('input', ()=>{ els.error.style.display='none'; });
+  document.getElementById('btn-deposit').addEventListener('click', ()=>handleAmount(1));
+  document.getElementById('btn-withdraw').addEventListener('click', ()=>handleAmount(-1));
+  els.targetDate.addEventListener('change', (e)=>{
+    load().then(()=>{
+      state.targetDate = e.target.value;
+      save().then(render);
+      render();
+    });
+  });
+  document.getElementById('btn-reset').addEventListener('click', ()=>{
+    if (confirm('Reset all savings data? This cannot be undone.')){
+      state = { transactions: [], targetDate: DEFAULT_TARGET };
+      save().then(render);
+      render();
+    }
+  });
+
+  load().then(render);
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.visibilityState === 'visible'){
+      load().then(render);
+    }
+  });
+  window.addEventListener('focus', ()=>{ load().then(render); });
+})();
+</script>
+</body>
+</html>
