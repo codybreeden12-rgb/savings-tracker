@@ -152,11 +152,16 @@
         state = data.record;
         if (!state.targetDate) state.targetDate = DEFAULT_TARGET;
         if (!state.transactions) state.transactions = [];
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e){}
       }
       setSyncStatus('synced');
     })
     .catch(err => {
       console.error('load failed', err);
+      try {
+        const cached = localStorage.getItem(STORAGE_KEY);
+        if (cached) state = JSON.parse(cached);
+      } catch(e){}
       setSyncStatus('offline');
     });
   }
